@@ -85,15 +85,14 @@ public class FlightScheduler {
                                 }
 
                                 String time = commands[3];
-
                                 if (locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(commands[4]))) {
                                     System.out.println("Invalid starting location");
-                                    //return;
+                                    return;
                                 }
-
+                                // Location startLocation = locations.stream().filter(l -> l.getLocationName().equals(commands[4]))
                                 if (locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(commands[5]))) {
                                     System.out.println("Invalid ending location");
-                                    //return;
+                                    return;
                                 }
 
                                 if (isInteger(commands[6])) {
@@ -109,6 +108,7 @@ public class FlightScheduler {
                                 Flight flight = new Flight();
                                 flight.setFlightId(flights.stream().map(Flight::getFlightId).max(Integer::compareTo).orElse(-1) + 1);
                                 flight.setDepartureDay(dayOfWeek);
+
                                 flight.setDepartureTime(LocalTime.of(Integer.parseInt(time.split(":")[0]), Integer.parseInt(time.split(":")[1])));
                                 flight.setCapacity(Integer.parseInt(commands[6]));
                                 flight.setBookedNum(0);

@@ -7,7 +7,6 @@ package com.sydney.flight;
  * @since 2021/04/12 14:25
  */
 public class Haversine {
-    // In kilometers
     public static final double R = 6371;
 
     public static double haversine(double lat1, double lon1, double lat2, double lon2) {

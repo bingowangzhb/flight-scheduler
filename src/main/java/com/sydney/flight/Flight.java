@@ -87,15 +87,12 @@ public class Flight {
 
     @Override
     public String toString() {
-        return "Flight {" +
-                "flightId=" + flightId +
-                ", sourceLocation=" + sourceLocation +
-                ", destinationLocation=" + destinationLocation +
-                ", departureDay=" + departureDay +
-                ", departureTime=" + departureTime +
-                ", capacity=" + capacity +
-                ", ticketPrice=" + ticketPrice +
-                ", bookedNum=" + bookedNum +
-                '}';
+        return "Flight " + flightId + "\n" +
+                "Departure: " + departureDay + " " + departureTime + " " + sourceLocation.getLocationName() + "\n" +
+                "Arrival: " + sourceLocation +
+                "Distance: " + destinationLocation +
+                "Duration: 0" +
+                "Ticket Cost: " + ticketPrice +
+                "Passengers: " + bookedNum + "/" +  capacity;
     }
 }
