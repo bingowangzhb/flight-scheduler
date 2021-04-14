@@ -21,6 +21,22 @@ public class Flight {
     private BigDecimal ticketPrice;
     private Integer bookedNum;
 
+
+    public Flight() {
+    }
+
+    public Flight(Integer flightId, Location sourceLocation, Location destinationLocation, DayOfWeek departureDay,
+                  LocalTime departureTime, Integer capacity, BigDecimal ticketPrice, Integer bookedNum) {
+        this.flightId = flightId;
+        this.sourceLocation = sourceLocation;
+        this.destinationLocation = destinationLocation;
+        this.departureDay = departureDay;
+        this.departureTime = departureTime;
+        this.capacity = capacity;
+        this.ticketPrice = ticketPrice;
+        this.bookedNum = bookedNum;
+    }
+
     public Integer getFlightId() {
         return flightId;
     }
@@ -87,12 +103,12 @@ public class Flight {
 
     @Override
     public String toString() {
-        return "Flight " + flightId + "\n" +
-                "Departure: " + departureDay + " " + departureTime + " " + sourceLocation.getLocationName() + "\n" +
-                "Arrival: " + sourceLocation +
-                "Distance: " + destinationLocation +
-                "Duration: 0" +
-                "Ticket Cost: " + ticketPrice +
-                "Passengers: " + bookedNum + "/" +  capacity;
+        return "Flight " + flightId +
+                "\nDeparture: " + departureDay + " " + departureTime + " " + sourceLocation.getLocationName() +
+                "\nArrival: " + destinationLocation.getLocationName() +
+                "\nDistance: 0" +
+                "\nDuration: 0" +
+                "\nTicket Cost: " + ticketPrice +
+                "\nPassengers: " + bookedNum + "/" +  capacity;
     }
 }

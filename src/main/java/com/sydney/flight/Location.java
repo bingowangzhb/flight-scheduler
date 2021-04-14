@@ -15,6 +15,16 @@ public class Location {
     private String longitude;
     private BigDecimal demandCoefficient;
 
+    public Location() {
+    }
+
+    public Location(String locationName, String latitude, String longitude, BigDecimal demandCoefficient) {
+        this.locationName = locationName;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.demandCoefficient = demandCoefficient;
+    }
+
     public String getLocationName() {
         return locationName;
     }
