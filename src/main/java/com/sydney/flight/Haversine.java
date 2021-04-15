@@ -1,5 +1,8 @@
 package com.sydney.flight;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 /**
  * Haversine
  *
@@ -9,7 +12,7 @@ package com.sydney.flight;
 public class Haversine {
     public static final double R = 6371;
 
-    public static double haversine(double lat1, double lon1, double lat2, double lon2) {
+    public static int haversine(double lat1, double lon1, double lat2, double lon2) {
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
         lat1 = Math.toRadians(lat1);
@@ -17,9 +20,12 @@ public class Haversine {
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
         double c = 2 * Math.asin(Math.sqrt(a));
-        return R * c;
+
+        return new BigDecimal(Double.toString(R * c)).setScale(0, RoundingMode.HALF_UP).intValue();
     }
     public static void main(String[] args) {
+
+
         System.out.println(haversine(52.5, 13.15, 40.7, -74.26));
     }
 }

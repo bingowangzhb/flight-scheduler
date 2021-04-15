@@ -11,15 +11,21 @@ import java.time.LocalTime;
  * @since 2021/04/12 13:34
  */
 public class Flight {
-
     private Integer flightId;
     private Location sourceLocation;
     private Location destinationLocation;
     private DayOfWeek departureDay;
     private LocalTime departureTime;
+    private DayOfWeek arrivalDay;
+    private LocalTime arrivalTime;
     private Integer capacity;
     private BigDecimal ticketPrice;
     private Integer bookedNum;
+    private Integer distance;
+    /**
+     * 飞行时间 分钟为单位
+     */
+    private Integer duration;
 
 
     public Flight() {
@@ -101,14 +107,59 @@ public class Flight {
         this.bookedNum = bookedNum;
     }
 
+    public DayOfWeek getArrivalDay() {
+        return arrivalDay;
+    }
+
+    public void setArrivalDay(DayOfWeek arrivalDay) {
+        this.arrivalDay = arrivalDay;
+    }
+
+    public LocalTime getArrivalTime() {
+        return arrivalTime;
+    }
+
+    public void setArrivalTime(LocalTime arrivalTime) {
+        this.arrivalTime = arrivalTime;
+    }
+
+    public Integer getDistance() {
+        return distance;
+    }
+
+    public void setDistance(Integer distance) {
+        this.distance = distance;
+    }
+
+    public Integer getDuration() {
+        return duration;
+    }
+
+    public void setDuration(Integer duration) {
+        this.duration = duration;
+    }
+
     @Override
     public String toString() {
         return "Flight " + flightId +
                 "\nDeparture: " + departureDay + " " + departureTime + " " + sourceLocation.getLocationName() +
                 "\nArrival: " + destinationLocation.getLocationName() +
-                "\nDistance: 0" +
-                "\nDuration: 0" +
-                "\nTicket Cost: " + ticketPrice +
-                "\nPassengers: " + bookedNum + "/" +  capacity;
+                "\nDistance: " + distance + "km" +
+                "\nDuration: " + (duration / 60) + "h " + (duration % 60) + "m" +
+                "\nTicket Cost: " + "$" + ticketPrice +
+                "\nPassengers: " + bookedNum + "/" +  capacity + "\n\n";
     }
+
+    public boolean isAfter(Flight f) {
+        int compareDayOfWeek = this.getDepartureDay().compareTo(f.getArrivalDay());
+        if (compareDayOfWeek < 0) {
+            return false;
+        } else if (compareDayOfWeek == 0) {
+            return this.getDepartureTime().compareTo(f.getArrivalTime()) > 0;
+        } else {
+            return true;
+        }
+    }
+
+
 }

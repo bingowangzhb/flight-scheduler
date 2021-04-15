@@ -1,11 +1,19 @@
 package com.sydney.flight;
 
+import com.sun.xml.internal.bind.v2.model.core.ID;
+
+import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
@@ -27,21 +35,26 @@ public class FlightScheduler {
      */
     private static List<Flight> flights = new ArrayList<>();
 
+    /**
+     * 无效命令提示
+     */
+    private final static String INVALID_COMMAND = "Invalid command. Type 'help' for a list of commands.";
+
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);;
         String command;
         while (true) {
-            System.out.println("Input Command:");
+            System.out.print("User: ");
             command = scanner.nextLine();
-            if ("exit".equals(command.trim())) {
+            if ("exit".equalsIgnoreCase(command.trim())) {
                 break;
             }
-
-            // flight addadb dfdasfdsf
+            command = command.replace("\t", " ");
             System.out.println("User Command :" + command);
             String[] commands = command.split(" ");
             if (command.length() == 0) {
-                System.out.println("Command Is Empty!");
+                System.out.println(INVALID_COMMAND);
             }
             else {
                 runCommand(commands);
@@ -49,19 +62,31 @@ public class FlightScheduler {
         }
     }
 
-    private static void runCommand(String[] commands) {
+    /**
+     * 运行用户输入的命令
+     * @param cmd cmd
+     */
+    private static void runCommand(String[] cmd) {
         StringBuilder cmdBuilder = new StringBuilder();
-        for (String command : commands) {
+        StringBuilder sourceBuilder = new StringBuilder();
+        for (String command : cmd) {
             command = command.trim();
+            if (command.equals("")) {
+                continue;
+            }
             cmdBuilder.append(command).append(" ");
+            sourceBuilder.append(command).append(" ");
         }
+
         String userCommand = cmdBuilder.toString().trim().toLowerCase();
-        System.out.println("userCommand : " + userCommand);
+        String sourceCommand = sourceBuilder.toString().trim();
+        String[] sourceCommands = sourceCommand.split(" ");
+        String[] commands = userCommand.split(" ");
         if (userCommand.startsWith("flight")) {
             if (commands[0].equals("flights")) {
                 // 处理 flights
                 if (commands.length > 1) {
-                    System.out.println("command is incorrect");
+                    System.out.println(INVALID_COMMAND);
                 }
                 else {
                    printFlights(flights);
@@ -76,46 +101,149 @@ public class FlightScheduler {
                     if (Arrays.asList("add", "import", "export").contains(s2)) {
                         if (s2.equals("add")) {
                             if (commands.length == 7) {
-                                DayOfWeek dayOfWeek = getDayOfWeek(commands[2]);
-                                if (null == dayOfWeek) {
-                                    System.out.println("Command dayOfWeek is incorrect!");
+                                DayOfWeek departureDay = getDayOfWeek(commands[2]);
+                                if (null == departureDay) {
+                                    System.out.println("Invalid departure time. Use the format " +
+                                            "<day_of_week> <hour:minute>, with 24h " +
+                                            "time.");
                                     return;
                                 }
 
                                 String time = commands[3];
-                                if (locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(commands[4]))) {
+                                // checktime
+                                String[] times = time.split(":");
+                                LocalTime departureTime;
+                                if (times.length != 2) {
+                                    System.out.println("Invalid departure time. Use the format \n" +
+                                            "<day_of_week> <hour:minute>, with 24h \n" +
+                                            "time.");
+                                    return;
+                                } else {
+                                    if (!isValidTime(times)) {
+                                        System.out.println("Invalid departure time. Use the format " +
+                                                "<day_of_week> <hour:minute>, with 24h " +
+                                                "time.");
+                                        return;
+                                    } else {
+                                        departureTime = LocalTime.of(Integer.parseInt(times[0]), Integer.parseInt(times[1]));
+                                    }
+                                }
+
+                                String startingLocationName = sourceCommands[4];
+                                if (!locations.isEmpty() && locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(startingLocationName))) {
                                     System.out.println("Invalid starting location");
                                     return;
                                 }
-                                // Location startLocation = locations.stream().filter(l -> l.getLocationName().equals(commands[4]))
-                                if (locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(commands[5]))) {
+
+                                String endingLocationName = sourceCommands[5];
+                                if (!locations.isEmpty() && locations.stream().map(Location::getLocationName).noneMatch(n -> n.equals(endingLocationName))) {
                                     System.out.println("Invalid ending location");
                                     return;
                                 }
 
-                                if (isInteger(commands[6])) {
-                                    if (Integer.parseInt(commands[6]) < 0) {
-                                        System.out.println("Invalid positive integer capacity");
-                                        return;
-                                    }
-                                } else {
-                                    System.out.println("capacity is not an integer");
+                                if (startingLocationName.equals(endingLocationName)) {
+                                    System.out.println("Source and destination cannot be the same place.");
                                     return;
                                 }
 
-                                Flight flight = new Flight();
-                                flight.setFlightId(flights.stream().map(Flight::getFlightId).max(Integer::compareTo).orElse(-1) + 1);
-                                flight.setDepartureDay(dayOfWeek);
+                                Location startingLocation = locations.stream().filter(l -> l.getLocationName().equals(startingLocationName)).findFirst().orElse(null);
+                                Location endingLocation = locations.stream().filter(l -> l.getLocationName().equals(endingLocationName)).findFirst().orElse(null);
 
-                                flight.setDepartureTime(LocalTime.of(Integer.parseInt(time.split(":")[0]), Integer.parseInt(time.split(":")[1])));
+                                int distance = startingLocation.getDistance(endingLocation);
+
+                                // 计算到达时间
+                                int hours = distance / 720;
+                                int minutes = distance % 720 / 12;
+
+                                DayOfWeek arrivalDay = departureDay.plus(hours / 24);
+                                LocalTime arrivalTime = departureTime.plusHours(hours % 24).plusMinutes(minutes);
+
+                                if (arrivalTime.isBefore(departureTime)) {
+                                    arrivalDay = arrivalDay.plus(1);
+                                }
+
+                                final DayOfWeek finalArrivalDay = arrivalDay;
+                                // 校验是否有航班冲突
+                                // 起飞冲突
+                                boolean isDepartureConflicting = flights.stream()
+                                        .anyMatch(f -> f.getDepartureDay().compareTo(departureDay) == 0
+                                                && ChronoUnit.MINUTES.between(f.getDepartureTime(), departureTime) < 60);
+                                // 到达冲突
+                                if (isDepartureConflicting) {
+                                    List<Flight> conflictingFlights = flights.stream()
+                                            .filter(f -> f.getDepartureDay().compareTo(departureDay) == 0)
+                                            .filter(f -> ChronoUnit.MINUTES.between(f.getDepartureTime(), departureTime) < 60)
+                                            .filter(f -> f.getDepartureTime().isAfter(departureTime))
+                                            .collect(Collectors.toList());
+                                    if (conflictingFlights.isEmpty()) {
+                                        conflictingFlights = flights.stream()
+                                                .filter(f -> f.getDepartureDay().compareTo(departureDay) == 0)
+                                                .filter(f -> ChronoUnit.MINUTES.between(f.getDepartureTime(), departureTime) < 60)
+                                                .filter(f -> f.getDepartureTime().isBefore(departureTime))
+                                                .collect(Collectors.toList());
+                                    }
+
+                                    System.out.println("Scheduling conflict! This flight clashes with Flight " + conflictingFlights.get(0).getFlightId()
+                                            + " departing from " + conflictingFlights.get(0).getSourceLocation().getLocationName()
+                                            + " on " + conflictingFlights.get(0).getDepartureDay() + " " + conflictingFlights.get(0).getDepartureTime());
+                                    return;
+                                }
+
+                                // 到达冲突
+                                boolean isArrivalConflicting = flights.stream()
+                                        .anyMatch(f -> f.getDepartureDay().compareTo(finalArrivalDay) == 0
+                                                && ChronoUnit.MINUTES.between(f.getDepartureTime(), arrivalTime) < 60);
+                                // 到达冲突
+                                if (isArrivalConflicting) {
+                                    List<Flight> conflictingFlights = flights.stream()
+                                            .filter(f -> f.getDepartureDay().compareTo(finalArrivalDay) == 0)
+                                            .filter(f -> ChronoUnit.MINUTES.between(f.getDepartureTime(), arrivalTime) < 60)
+                                            .filter(f -> f.getDepartureTime().isAfter(arrivalTime))
+                                            .collect(Collectors.toList());
+                                    if (conflictingFlights.isEmpty()) {
+                                        conflictingFlights = flights.stream()
+                                                .filter(f -> f.getDepartureDay().compareTo(finalArrivalDay) == 0)
+                                                .filter(f -> ChronoUnit.MINUTES.between(f.getDepartureTime(), arrivalTime) < 60)
+                                                .filter(f -> f.getDepartureTime().isBefore(arrivalTime))
+                                                .collect(Collectors.toList());
+                                    }
+
+                                    System.out.println("Scheduling conflict! This flight clashes with Flight " + conflictingFlights.get(0).getFlightId()
+                                            + " arriving at " + conflictingFlights.get(0).getSourceLocation().getLocationName()
+                                            + " on " + conflictingFlights.get(0).getDepartureDay() + " " + conflictingFlights.get(0).getDepartureTime());
+                                    return;
+                                }
+
+
+                                if (isInteger(commands[6])) {
+                                    if (Integer.parseInt(commands[6]) < 0) {
+                                        System.out.println("Invalid positive integer capacity.");
+                                        return;
+                                    }
+                                } else {
+                                    System.out.println("Invalid integer capacity.");
+                                    return;
+                                }
+
+                                int flightId = flights.stream().map(Flight::getFlightId).max(Integer::compareTo).orElse(-1) + 1;
+                                Flight flight = new Flight();
+                                flight.setFlightId(flightId);
+                                flight.setDepartureDay(departureDay);
+                                flight.setDepartureTime(departureTime);
+                                flight.setSourceLocation(startingLocation);
+                                flight.setDestinationLocation(endingLocation);
+                                flight.setDuration(hours * 60 + minutes);
+                                flight.setArrivalDay(arrivalDay);
+                                flight.setArrivalTime(arrivalTime);
+                                flight.setDistance(distance);
                                 flight.setCapacity(Integer.parseInt(commands[6]));
                                 flight.setBookedNum(0);
+                                flight.setTicketPrice(getTicketPrice(flight, 0));
                                 flights.add(flight);
 
-                                System.out.println("flights : " + flights);
-
+                                System.out.println("Successfully added Flight " + flightId + ".");
                             } else {
-                                System.out.println("arguments is not enough");
+                                System.out.println("Usage: FLIGHT ADD <departure time> <from> <to> <capacity>");
                             }
                         } else if (s2.equals("import")) {
                             // flight import
@@ -126,7 +254,7 @@ public class FlightScheduler {
                         // 处理 flight id remove/reset
                         // flight id remove
                         if (commands.length > 3) {
-                            System.out.println("Invalid User Command");
+                            System.out.println(INVALID_COMMAND);
                         } else {
                             if (isInteger(commands[1])) {
                                 if (commands.length == 2) {
@@ -166,7 +294,7 @@ public class FlightScheduler {
             if ("locations".equals(commands[0])) {
                 // 处理 locations
                 if (commands.length > 1) {
-                    System.out.println("command is incorrect");
+                    System.out.println("Invalid Command");
                 }
                 else {
                     printLocations(locations);
@@ -183,8 +311,8 @@ public class FlightScheduler {
                         if ("add".equals(s2)) {
                             if (commands.length == 6) {
                                 // location add
-                                String locationName = commands[2];
-                                boolean isMatch = locations.stream().anyMatch(l -> l.getLocationName().equalsIgnoreCase(locationName));
+                                String locationName = sourceCommands[2];
+                                boolean isMatch = locations.stream().anyMatch(l -> l.getLocationName().equals(locationName));
                                 if (isMatch) {
                                     System.out.println(" This location already exists ");
                                     return;
@@ -217,12 +345,13 @@ public class FlightScheduler {
                             }
                         } else if ("import".equals(s2)) {
                             // location import
+
                         } else if ("export".equals(s2)) {
                             // import export
                         }
                     } else {
                         if (commands.length > 2) {
-                            System.out.println("Invalid Location Command!");
+                            System.out.println("Invalid Command!");
                         } else {
                             Location location = locations.stream().filter(l -> l.getLocationName().equalsIgnoreCase(s2)).findFirst().orElse(null);
                             System.out.println(location);
@@ -239,11 +368,60 @@ public class FlightScheduler {
         } else if (userCommand.startsWith("arrivals")) {
 
         } else if (userCommand.startsWith("travel")) {
+            if (commands.length == 1) {
+                if (userCommand.equals("travel")) {
+                    System.out.println("Usage: TRAVEL <from> <to> [cost/duration/stopovers/layover/flight_time]");
+                } else {
+                    System.out.println(INVALID_COMMAND);
+                }
+            } else if (commands.length > 6 || commands.length < 4) {
+                System.out.println(INVALID_COMMAND);
+            } else {
+                String from = sourceCommands[1];
+                if (!isLocationFound(from)) {
+                    System.out.println("Starting location not found.");
+                    return;
+                }
+                String to = sourceCommands[2];
+                if (!isLocationFound(to)) {
+                    System.out.println("Ending location not found.");
+                    return;
+                }
+                String sort;
+                if (commands.length == 4) {
+                    // 默认排序
+                    sort = "duration";
+                }
+                else {
+                    sort = commands[4];
+                    if (!Arrays.asList("cost", "duration", "stopovers", "layover", "flight_time").contains(sort)) {
+                        System.out.println("Invalid sorting property: must be either cost, duration, stopovers, layover, or flight_time.");
+                        return;
+                    }
+                }
 
+                searchFlights(from, to, sort);
+            }
         } else if (userCommand.startsWith("help")) {
-
+            // 打印帮助信息
         } else {
-            System.out.println("YOUR COMMAND IS INVALID!");
+            System.out.println("");
+        }
+    }
+
+    private static boolean isValidTime(String[] times) {
+        try {
+            int hour = Integer.parseInt(times[0]);
+            int minute = Integer.parseInt(times[1]);
+
+            if (hour < 0 || hour > 24) {
+                return false;
+            }
+
+            return minute >= 0 && minute <= 59;
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+            return false;
         }
     }
 
@@ -269,7 +447,7 @@ public class FlightScheduler {
             Double.valueOf(latitude);
 
             BigDecimal d = new BigDecimal(latitude);
-            return d.compareTo(new BigDecimal("+180")) <= 0 && d.compareTo(new BigDecimal("-180")) >= 0;
+            return d.compareTo(new BigDecimal("85")) <= 0 && d.compareTo(new BigDecimal("-85")) >= 0;
         } catch (NumberFormatException e) {
             e.printStackTrace();
             return false;
@@ -280,7 +458,7 @@ public class FlightScheduler {
         try {
             Double.valueOf(longitude);
             BigDecimal d = new BigDecimal(longitude);
-            return d.compareTo(new BigDecimal("+85")) <= 0 && d.compareTo(new BigDecimal("-85")) >= 0;
+            return d.compareTo(new BigDecimal("180")) <= 0 && d.compareTo(new BigDecimal("-180")) >= 0;
         } catch (NumberFormatException e) {
             e.printStackTrace();
             return false;
@@ -303,16 +481,309 @@ public class FlightScheduler {
         System.out.println("-------------------------------------------------------");
         System.out.println("ID Departure Arrival Source --> Destination");
         System.out.println("-------------------------------------------------------");
+
+        // 排序输出
         for (Flight f : flights) {
             System.out.println(f.getFlightId() + " " + f.getDepartureDay() + " " + f.getDepartureTime() + " "
-                    + f.getSourceLocation() + " --> " + f.getDestinationLocation());
+                    + f.getSourceLocation().getLocationName() + " --> " + f.getDestinationLocation().getLocationName());
         }
     }
 
+    /**
+     * 打印Locations
+     * @param locations locations
+     */
     public static void printLocations(List<Location> locations) {
         System.out.println("Locations (" + locations.size() + "):");
         System.out.println(locations.stream().map(Location::getLocationName).sorted().collect(Collectors.joining(",")));
     }
 
+    public static BigDecimal getTicketPrice(Flight flight, int bookNum) {
+        return new BigDecimal(Integer.toString(flight.getDistance()))
+                .multiply(new BigDecimal("30")
+                        .add(new BigDecimal("4")
+                                .multiply(flight.getDestinationLocation().getDemandCoefficient()
+                                        .subtract(flight.getSourceLocation().getDemandCoefficient()))))
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public static boolean isLocationFound(String locationName) {
+        return locations.stream().anyMatch(l -> l.getLocationName().equals(locationName));
+    }
+
+    public static void searchFlights(String from, String to, String sort) {
+        Map<String, List<Flight>> fromToMap = flights.stream()
+                .collect(Collectors.groupingBy(f -> f.getSourceLocation().getLocationName()));
+
+        if (!fromToMap.containsKey(from)) {
+            System.out.println("Sorry, no flights with 3 or less stopovers are available from " + from + " to " + to + ".");
+        }
+        List<List<Flight>> lines = new ArrayList<>();
+        for (Flight f0 : fromToMap.getOrDefault(from, new ArrayList<>(0))) {
+            if (isMatch(f0, to)) {
+                List<Flight> flights = new ArrayList<>();
+                flights.add(f0);
+                lines.add(flights);
+            } else {
+                List<Flight> f1s = fromToMap.getOrDefault(f0.getDestinationLocation().getLocationName(), new ArrayList<>(0));
+                List<Flight> availableF1s = f1s.stream()
+                        .filter(f -> f.isAfter(f0))
+                        .filter(f -> f.getBookedNum() < f.getCapacity())
+                        .collect(Collectors.toList());
+                for (Flight stopover1 : availableF1s) {
+                    if (isMatch(stopover1, to)) {
+                        List<Flight> flights = new ArrayList<>();
+                        flights.add(f0);
+                        flights.add(stopover1);
+                        lines.add(flights);
+                    } else {
+                        List<Flight> stopover1s = fromToMap.getOrDefault(stopover1.getDestinationLocation().getLocationName(), new ArrayList<>(0));
+                        List<Flight> availableStopover1s = stopover1s.stream()
+                                .filter(f -> f.isAfter(stopover1))
+                                .filter(f -> f.getBookedNum() < f.getCapacity())
+                                .collect(Collectors.toList());
+
+                        for (Flight stopover2 : availableStopover1s) {
+                            if (isMatch(stopover2, to)) {
+                                List<Flight> flights = new ArrayList<>();
+                                flights.add(f0);
+                                flights.add(stopover1);
+                                flights.add(stopover2);
+                                lines.add(flights);
+                            } else {
+                                List<Flight> stopover2s = fromToMap.getOrDefault(stopover2.getDestinationLocation().getLocationName(), new ArrayList<>(0));
+                                List<Flight> availableStopover2s = stopover2s.stream()
+                                        .filter(f -> f.isAfter(stopover2))
+                                        .filter(f -> f.getBookedNum() < f.getCapacity())
+                                        .collect(Collectors.toList());
+                                for (Flight stopover3 : availableStopover2s) {
+                                    if (isMatch(stopover3, to)) {
+                                        List<Flight> flights = new ArrayList<>();
+                                        flights.add(f0);
+                                        flights.add(stopover1);
+                                        flights.add(stopover2);
+                                        flights.add(stopover3);
+                                        lines.add(flights);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        printTravelFlights(from, to, lines, sort);
+    }
+
+    /**
+     * 排序打印航班
+     * @param from from
+     * @param to to
+     * @param lines 航班线路
+     * @param sort 排序方式
+     */
+    private static void printTravelFlights(String from, String to, List<List<Flight>> lines, String sort) {
+
+        if (lines.isEmpty()) {
+            System.out.println("Sorry, no flights with 3 or less stopovers are available from " + from + " to " + to + ".");
+            return;
+        }
+
+        // cost > duration
+        // duration > cost
+        // stopovers > duration
+        // layover > duration > cost
+        // flight_time > duration > cost
+
+        List<List<Flight>> orderedFlights = null;
+        if ("cost".equals(sort)) {
+            orderedFlights = lines.stream()
+                    .sorted(getComparator("cost").thenComparing(getComparator("duration")))
+                    .collect(Collectors.toList());
+        } else if ("duration".equals(sort)) {
+            orderedFlights = lines.stream()
+                    .sorted(getComparator("duration").thenComparing(getComparator("cost")))
+                    .collect(Collectors.toList());
+        } else if ("stopovers".equals(sort)) {
+            orderedFlights = lines.stream()
+                    .sorted(getComparator("stopovers").thenComparing(getComparator("duration")))
+                    .collect(Collectors.toList());
+        } else if ("layover".equals(sort)) {
+            orderedFlights = lines.stream()
+                    .sorted(getComparator("layover")
+                            .thenComparing(getComparator("duration"))
+                            .thenComparing(getComparator("cost")))
+                    .collect(Collectors.toList());
+        } else {
+            orderedFlights = lines.stream()
+                    .sorted(getComparator("flight_time")
+                            .thenComparing(getComparator("duration"))
+                            .thenComparing(getComparator("cost")))
+                    .collect(Collectors.toList());
+        }
+
+        for (List<Flight> flights : orderedFlights) {
+            System.out.println("Legs: " + (flights.size() - 1));
+
+            int totalDuration = getTotalDuration(flights);
+            System.out.println("Total Duration: " + (totalDuration / 60) + "h " + (totalDuration % 60) + "m");
+            System.out.println("Total Cost: " + getTotalCost(flights));
+
+            System.out.println("-------------------------------------------------------------");
+            System.out.println("ID Cost Departure Arrival Source --> Destination");
+            System.out.println("-------------------------------------------------------------");
+
+            for (Flight flight : flights) {
+                System.out.println(flight.getFlightId() + " " + flight.getTicketPrice() + " " + flight.getArrivalDay()
+                        + " " + flight.getArrivalTime() + " " + flight.getSourceLocation().getLocationName() + "-->"
+                        + flight.getDestinationLocation().getLocationName());
+            }
+        }
+    }
+
+    /**
+     * 构建排序器
+     * @param sort sort
+     * @return Comparator
+     */
+    public static Comparator<List<Flight>> getComparator(String sort){
+        Comparator<List<Flight>> comparator = (flights1, flights2) -> {
+            if ("cost".equals(sort)) {
+                // 机票价格
+                BigDecimal flight1sCost = getTotalCost(flights1);
+                BigDecimal flight2sCost = getTotalCost(flights2);
+                return flight1sCost.compareTo(flight2sCost);
+            } else if ("duration".equals(sort)) {
+                // 起始站起飞时间 - 终点站降落时间
+                Integer flight1Duration = getTotalDuration(flights1);
+                Integer flight2Duration = getTotalDuration(flights2);
+                return flight1Duration.compareTo(flight2Duration);
+            } else if ("stopovers".equals(sort)) {
+                // 中转站
+                Integer stopovers1Size = flights1.size();
+                Integer stopovers2Size = flights2.size();
+                return stopovers1Size.compareTo(stopovers2Size);
+            } else if ("layover".equals(sort)) {
+                // 停留时间
+                Integer layoverTime1 = getTotalLayoverDuration(flights1);
+                Integer layoverTime2 = getTotalLayoverDuration(flights2);
+                return layoverTime1.compareTo(layoverTime2);
+            } else {
+                // flight_time
+                // 飞行时间
+                Integer flightTime1 = getTotalFlightTime(flights1);
+                Integer flightTime2 = getTotalFlightTime(flights2);
+                return flightTime1.compareTo(flightTime2);
+            }
+        };
+
+        return comparator;
+    }
+
+
+
+    /**
+     * 获取总的飞行时间
+     * @param flights flights
+     * @return BigDecimal
+     */
+    public static Integer getTotalFlightTime(List<Flight> flights) {
+        return flights.stream()
+                .map(Flight::getDuration)
+                .reduce(0, Integer::sum);
+    }
+
+    /**
+     * 获取总的机票费用
+     * @param flights flights
+     * @return BigDecimal
+     */
+    public static BigDecimal getTotalCost(List<Flight> flights) {
+        return flights.stream()
+                .map(Flight::getTicketPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * 获取总的等待时间
+     * @param flights flights
+     * @return int
+     */
+    public static Integer getTotalLayoverDuration(List<Flight> flights) {
+
+        if (flights.size() == 1) {
+             return 0;
+        }
+
+        int layoverTime = 0;
+        DayOfWeek departureDay;
+        LocalTime departureTime;
+        DayOfWeek arrivalDay;
+        LocalTime arrivalTime;
+        for (int i = 0; i < flights.size() - 1; i++) {
+            Flight current = flights.get(i);
+            Flight next = flights.get(i + 1);
+            arrivalDay = current.getArrivalDay();
+            arrivalTime = current.getArrivalTime();
+
+
+            departureDay = next.getDepartureDay();
+            departureTime = next.getArrivalTime();
+
+            departureDay = departureDay.getValue() < arrivalDay.getValue() ? departureDay.plus(7) : departureDay;
+            int days = departureDay.getValue() - arrivalDay.getValue();
+
+            departureTime = departureTime.compareTo(arrivalTime) < 0 ? departureTime.plusMinutes(days * 24 * 60) : departureTime;
+            long minutes = ChronoUnit.MINUTES.between(arrivalTime, departureTime);
+            layoverTime += (int) (days * 24 + minutes);
+        }
+
+        return layoverTime;
+    }
+
+    /**
+     * 获取总的持续时间
+     * @param flights flights
+     * @return int
+     */
+    public static int getTotalDuration(List<Flight> flights) {
+        Flight start;
+        Flight end;
+        if (flights.size() == 1) {
+             start = flights.get(0);
+             end = flights.get(0);
+        } else {
+             start = flights.get(0);
+             end = flights.get(flights.size() - 1);
+        }
+
+        DayOfWeek departureDay = start.getDepartureDay();
+        LocalTime departureTime = start.getDepartureTime();
+
+        DayOfWeek arrivalDay = end.getArrivalDay();
+        LocalTime arrivalTime = end.getArrivalTime();
+
+        int days = 0;
+        if (flights.size() > 1) {
+            // 1 - 7 6
+            // 4 - 1 1
+            arrivalDay = arrivalDay.getValue() < departureDay.getValue() ? arrivalDay.plus(7) : arrivalDay;
+            days = arrivalDay.getValue() - departureDay.getValue();
+        }
+
+        // 08:00 - 14:00
+        // 20:00 - 01:00
+        arrivalTime = arrivalTime.compareTo(departureTime) < 0 ? arrivalTime.plusMinutes(days * 24 * 60) : arrivalTime;
+        long minutes = ChronoUnit.MINUTES.between(arrivalTime, departureTime);
+
+        return (int) (minutes > 0 ? minutes : -minutes);
+    }
+
+
+
+    public static boolean isMatch(Flight f, String to) {
+        return f.getDestinationLocation().getLocationName().equals(to) && f.getBookedNum() < f.getCapacity();
+    }
 
 }
