@@ -5,7 +5,9 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -19,29 +21,22 @@ import java.util.stream.Collectors;
  */
 public class Test {
 
-
-    static Stack<Flight> lines = new Stack<>();
-
     public static void main(String[] args) {
+        LocalTime lt1 = LocalTime.of(4, 0);
+        LocalTime lt2 = LocalTime.of(12, 0);
 
-        DayOfWeek dayOfWeek1 = DayOfWeek.MONDAY;
-        DayOfWeek dayOfWeek2 = DayOfWeek.TUESDAY;
-        DayOfWeek dayOfWeek3 = DayOfWeek.WEDNESDAY;
-        DayOfWeek dayOfWeek4 = DayOfWeek.THURSDAY;
-        DayOfWeek dayOfWeek5 = DayOfWeek.FRIDAY;
-        DayOfWeek dayOfWeek6 = DayOfWeek.SATURDAY;
-        DayOfWeek dayOfWeek7 = DayOfWeek.SUNDAY;
-
-        // 周五 22:00
-        // 周日 02:00      02 + 24 - 22
-
-        // 周日 22:00
-        // 周一 02:00      02 + 24 - 22
+        long b = ChronoUnit.MINUTES.between(lt2, lt1);
+        System.out.println("b = " + b);
+        System.out.println("b = " + (b < 60));
 
 
+        List<String> list = new ArrayList<>(Arrays.asList("ab", "abc", "abcd", "de", "ef"));
 
-        System.out.println("dayOfWeek1 - dayofWeek6  = " + dayOfWeek1.plus(7));
-
+        List<String> ls = list.stream()
+                .filter(s -> s.startsWith("a"))
+                .filter(s -> s.length() > 3)
+                .collect(Collectors.toList());
+        System.out.println("ls = " + ls);
     }
 
     private static void s4() {

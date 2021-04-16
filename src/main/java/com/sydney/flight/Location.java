@@ -60,10 +60,13 @@ public class Location {
 
     @Override
     public String toString() {
-        return "Location: " + locationName + "\nLatitude: " + latitude + "\nLongitude: " + longitude + "\nDemand:" + demandCoefficient;
+        return "Location: " + locationName + "\nLatitude: " + latitude + "\nLongitude: " + longitude + "\nDemand: " + demandCoefficient;
     }
 
     public int getDistance(Location l) {
+        if (null == l) {
+            return 0;
+        }
         // 地球半径
         double r = 6371;
 
